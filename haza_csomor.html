@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Haza Csömör</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b1120; --surface: #151f33; --surface2: #1c2a45;
+      --text: #dde5f4; --muted: #5a6e91;
+      --green: #22d3a4; --yellow: #f5c542; --orange: #f97316;
+      --red: #f05252; --blue: #60a5fa;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 14px; }
+
+    #apiPanel { background: var(--surface); border: 1px solid #263355; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+    #apiPanel h2 { font-size: 0.95rem; color: var(--blue); margin-bottom: 6px; }
+    #apiPanel p  { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
+    #apiPanel a  { color: var(--blue); }
+    .key-row { display: flex; gap: 8px; }
+    .btn-save { background: #0d3050; border: 1px solid var(--blue); color: var(--blue); font-size: 0.85rem; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .btn-save:hover { background: #1a4a80; }
+    .compact-panel { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid #263355; border-radius: 10px; padding: 8px 12px; margin-bottom: 14px; }
+    .compact-panel span { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+    .compact-key { font-size: 0.75rem; color: var(--blue); font-family: monospace; }
+    .btn-change { background: none; border: none; color: var(--muted); font-size: 0.72rem; cursor: pointer; text-decoration: underline; padding: 0; }
+
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .title-block h1 { font-size: 1.1rem; font-weight: 800; color: var(--blue); }
+    .title-block p  { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    #clock { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; text-align: right; }
+    #updated { font-size: 0.68rem; color: var(--muted); text-align: right; margin-top: 2px; }
+
+    .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .btn { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid #263355; color: var(--blue); font-size: 0.8rem; font-weight: 600; padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+    .btn:hover { background: #243050; }
+    .filter-label { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+    .filter-label input { accent-color: var(--blue); margin-right: 4px; }
+    .controls2 { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .ctrl-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .btn-group { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #263355; }
+    .seg { background: var(--surface2); color: var(--muted); border: none; padding: 5px 11px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+    .seg:hover { background: #243050; color: var(--text); }
+    .seg.active { background: #1a3a6a; color: var(--blue); }
+
+    #debugBar { display: none; background: #1a1000; border: 1px solid #3a2800; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 0.72rem; color: var(--orange); line-height: 1.7; }
+
+    #content { display: flex; flex-direction: column; gap: 9px; }
+    .card { background: var(--surface); border-radius: 12px; padding: 13px 14px; border-left: 4px solid var(--green); }
+    .card.soon  { border-left-color: var(--yellow); }
+    .card.hurry { border-left-color: var(--orange); }
+    .card.now   { border-left-color: var(--red); }
+    .card.past  { border-left-color: var(--muted); opacity: 0.6; }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 5px; }
+    .route-badge { background: var(--surface2); border-radius: 6px; padding: 3px 9px; font-size: 1rem; font-weight: 800; color: var(--blue); }
+    .headsign { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    .urgency-pill { border-radius: 20px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .urgency-pill.ok    { background: #0d3328; color: var(--green); }
+    .urgency-pill.soon  { background: #3a2d05; color: var(--yellow); }
+    .urgency-pill.hurry { background: #3a1805; color: var(--orange); }
+    .urgency-pill.now   { background: #3a0a0a; color: var(--red); animation: pulse 1s infinite; }
+    .urgency-pill.past  { background: transparent; color: var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .stop-row { font-size: 0.78rem; color: #7a90b8; margin-bottom: 9px; line-height: 1.5; }
+    .delay-badge { display: inline-block; background: #3a1a05; color: var(--orange); font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 4px; margin-left: 6px; }
+    .times-row { display: flex; background: var(--surface2); border-radius: 8px; overflow: hidden; }
+    .time-cell { flex: 1; text-align: center; padding: 7px 4px; position: relative; }
+    .time-cell:not(:last-child)::after { content: ''; position: absolute; right: 0; top: 20%; bottom: 20%; width: 1px; background: #263355; }
+    .time-cell .lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .time-cell .val { font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .val.leave { color: var(--red); } .val.dep { color: var(--yellow); }
+    .val.arr { color: var(--green); } .val.sched { color: #94a3b8; }
+    .time-cell .sub { font-size: 0.63rem; color: var(--muted); margin-top: 1px; }
+    .sched-badge { display: inline-block; background: #1a2540; color: #64748b; font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 3px; margin-left: 3px; vertical-align: middle; }
+    .rank { font-size: 0.65rem; color: var(--muted); font-weight: 600; float: right; }
+    .status-msg { text-align: center; padding: 36px 20px; color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+    .spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid var(--surface2); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { margin-top: 18px; font-size: 0.67rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+<div id="apiPanelWrap">
+  <div id="apiPanel">
+    <h2>🔑 BKK FUTÁR API kulcs szükséges</h2>
+    <p>Ha az előző appban már megadtad ugyanezen a domainen, automatikusan betöltődik. Egyébként: <a href="https://opendata.bkk.hu" target="_blank">opendata.bkk.hu</a></p>
+    <div class="key-row">
+      <input id="apiKeyInput" type="text" placeholder="Ide illeszd az API kulcsot…" autocomplete="off"
+        style="flex:1;background:var(--surface2);border:1px solid #263355;border-radius:8px;color:var(--text);padding:8px 12px;font-size:0.85rem;outline:none"/>
+      <button class="btn-save" onclick="saveKey()">Mentés &amp; indítás</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="title-block">
+    <h1>🏠 Haza Csömör</h1>
+    <p>Örs vezér tere → Csömör · mikor ér a megállóba, mikor kell érte indulni</p>
+  </div>
+  <div>
+    <div id="clock">--:--:--</div>
+    <div id="updated">—</div>
+  </div>
+</header>
+
+<div class="controls">
+  <button class="btn" onclick="loadAll()">⟳ Frissítés</button>
+  <label class="filter-label">
+    <input type="checkbox" id="hideExpired" checked onchange="renderCurrent()">
+    Csak ami még nem indult el
+  </label>
+</div>
+<div class="controls2">
+  <span class="ctrl-label">Sorrend:</span>
+  <div class="btn-group" id="sortBtns">
+    <button class="seg active" onclick="setSort('depart')">Örsről indul</button>
+    <button class="seg" onclick="setSort('arrive')">Megállóba érkezik</button>
+  </div>
+  <span class="ctrl-label" style="margin-left:10px">Lista:</span>
+  <div class="btn-group" id="limitBtns">
+    <button class="seg" onclick="setLimit(5)">5</button>
+    <button class="seg active" onclick="setLimit(10)">10</button>
+    <button class="seg" onclick="setLimit(15)">15</button>
+    <button class="seg" onclick="setLimit(25)">25</button>
+  </div>
+</div>
+
+<div id="content"><div class="status-msg">Add meg az API kulcsot a fenti mezőben.</div></div>
+<div id="debugBar"></div>
+
+<footer>Adatok: BKK FUTÁR API · Automatikus frissítés: 60 mp-enként<br>M = menetrend szerinti időpont (nincs valós idejű adat)</footer>
+
+<script>
+// ── Konfiguráció ─────────────────────────────────────────────────────
+const API  = 'https://futar.bkk.hu/api/query/v1/ws/otp/api/where/';
+const MINS = 75;            // ennyi percre előre nézzük az Örsről induló járatokat
+const BUFFER_MIN = 0;       // ha pár perccel korábban akarsz a megállónál lenni, írd ide
+const MAX_FETCH = 40;       // max ennyi járat útvonalát kérjük le egy frissítésnél
+
+// Örs vezér tere környéke (megállók automatikus keresése)
+const ORS = { lat: 47.5030, lon: 19.1356 };
+// Ha az automatikus keresés nem találja a megállókat, ide beírhatod kézzel az azonosítókat:
+const EXTRA_ORS_STOP_IDS = [];   // pl. ['BKK_F00938']
+
+// Célhelyek: ahol az utas leszáll. A felismerés azonosító VAGY név alapján történik,
+// mert az ellenkező irányú megálló azonosítója eltérhet az induló megállóétól.
+const DESTS = [
+  { name: 'Árpádföld, Dezsőfia u.', driveMin: 4, ids: ['BKK_F03292'],   match: [['dezsőfia']] },
+  { name: 'Csömör HÉV-állomás',     driveMin: 3, ids: ['BKK_19836'],    match: [['csömör','hév'], ['csömör h']], exact: ['csömör'] },
+  { name: 'Ilonatelep',             driveMin: 6, ids: ['BKK_19841'],    match: [['ilonatelep']] },
+  { name: 'Mátyás király utca',     driveMin: 7, ids: ['BKK_F03227'],   match: [['mátyás király']] },
+  { name: 'Ida utca',               driveMin: 8, ids: ['BKK_F03353'],   match: [['ida utca']] },
+  { name: 'Rákóczi F. u.',          driveMin: 1, ids: ['BKK_777427_2'], match: [['csömör','rákóczi']], walk: true },
+  { name: 'Major utca',             driveMin: 2, ids: ['BKK_008714'],   match: [['major utca']] },
+];
+
+let API_KEY = '';
+let refreshTimer;
+let sortBy = 'depart';
+let maxItems = 10;
+let lastItems = [];
+let orsStops = null;
+const negCache = new Set();   // route+irány kombinációk, amik nem érintik a célhelyeket
+
+// ── Segédek ──────────────────────────────────────────────────────────
+const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const fmt  = ts => ts ? new Date(ts * 1000).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+function vehicleLabel(type, name) {
+  if (/^H\d/i.test(name || '')) return { emoji: '🚈', name: 'HÉV' };
+  const t = String(type).toUpperCase();
+  if (t === '0'  || t === 'TRAM')       return { emoji: '🚋', name: 'villamos' };
+  if (t === '1'  || t === 'SUBWAY')     return { emoji: '🚇', name: 'metró' };
+  if (t === '2'  || t === 'RAIL')       return { emoji: '🚂', name: 'vonat' };
+  if (t === '11' || t === 'TROLLEYBUS') return { emoji: '🚎', name: 'troli' };
+  return { emoji: '🚌', name: 'busz' };
+}
+function isExcludedType(type) {
+  const t = String(type).toUpperCase();
+  return t === '1' || t === 'SUBWAY' || t === '0' || t === 'TRAM';
+}
+
+function matchDest(stopId, stopName) {
+  const n = norm(stopName);
+  for (const d of DESTS) {
+    if (d.ids.includes(stopId)) return d;
+    if (n && d.exact && d.exact.includes(n)) return d;
+    if (n && d.match.some(kws => kws.every(k => n.includes(k)))) return d;
+  }
+  return null;
+}
+
+// ── Kulcskezelés ─────────────────────────────────────────────────────
+function loadSavedKey() {
+  try {
+    API_KEY  = localStorage.getItem('bkk_api_key') || '';
+    sortBy   = localStorage.getItem('ors_rev_sort') || 'depart';
+    maxItems = parseInt(localStorage.getItem('ors_rev_limit') || '10');
+  } catch(e) {}
+  document.querySelectorAll('#sortBtns .seg').forEach((b, i) =>
+    b.classList.toggle('active', (i === 0) === (sortBy === 'depart')));
+  document.querySelectorAll('#limitBtns .seg').forEach(b =>
+    b.classList.toggle('active', b.textContent == maxItems));
+  if (API_KEY) renderCompactPanel();
+}
+function saveKey() {
+  const inp = document.getElementById('apiKeyInput');
+  const val = inp ? inp.value.trim() : '';
+  if (!val) { alert('Kérlek add meg az API kulcsodat!'); return; }
+  API_KEY = val;
+  try { localStorage.setItem('bkk_api_key', API_KEY); } catch(e) {}
+  renderCompactPanel();
+  clearInterval(refreshTimer);
+  loadAll();
+  refreshTimer = setInterval(loadAll, 60000);
+}
+function renderCompactPanel() {
+  const masked = API_KEY.length > 8 ? API_KEY.slice(0, 4) + '…' + API_KEY.slice(-4) : '****';
+  document.getElementById('apiPanelWrap').innerHTML = `
+    <div class="compact-panel">
+      <span>🔑 API kulcs:</span><span class="compact-key">${masked}</span>
+      <button class="btn-change" onclick="resetKey()">módosítás</button>
+    </div>`;
+}
+function resetKey() {
+  API_KEY = '';
+  try { localStorage.removeItem('bkk_api_key'); } catch(e) {}
+  location.reload();
+}
+
+// ── API ──────────────────────────────────────────────────────────────
+async function apiFetch(path) {
+  const url = `${API}${path}&key=${encodeURIComponent(API_KEY)}&version=3&appVersion=apiary-1.0&includeReferences=true`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    let detail = '';
+    try { const j = await r.json(); detail = j.text || j.message || ''; } catch(e) {}
+    throw new Error(`HTTP ${r.status}${detail ? ' – ' + detail : ''}`);
+  }
+  const j = await r.json();
+  if (j.status && j.status !== 'OK') throw new Error(`API: ${j.status} – ${j.text || ''}`);
+  return j;
+}
+
+// Örs vezér tere megállóinak automatikus megkeresése
+async function discoverOrsStops() {
+  if (orsStops && orsStops.length) return orsStops;
+  const pick = j => j?.data?.list || Object.values(j?.data?.references?.stops || {});
+  let all = pick(await apiFetch(`stops-for-location.json?lat=${ORS.lat}&lon=${ORS.lon}&latSpan=0.006&lonSpan=0.009`));
+  if (!all.length) all = pick(await apiFetch(`stops-for-location.json?lat=${ORS.lat}&lon=${ORS.lon}&radius=600`));
+  const found = all
+    .filter(s => norm(s.name).includes('örs vezér tere'))
+    .map(s => ({ id: s.id, name: s.name }));
+  for (const id of EXTRA_ORS_STOP_IDS) if (!found.some(f => f.id === id)) found.push({ id, name: id });
+  orsStops = found;
+  return orsStops;
+}
+
+// Az útvonalon az Örs utáni célhelyek megkeresése
+function findDestinations(tripData, fromSeq) {
+  const stops     = tripData?.data?.references?.stops || {};
+  const stopTimes = tripData?.data?.entry?.stopTimes  || [];
+  const out = [], seen = new Set();
+  for (const st of stopTimes) {
+    if (st.stopSequence <= fromSeq) continue;
+    const s = stops[st.stopId] || {};
+    const d = matchDest(st.stopId, s.name || '');
+    if (!d || seen.has(d.name)) continue;
+    const sched = st.arrivalTime || st.departureTime || null;
+    const rt    = st.predictedArrivalTime || st.predictedDepartureTime || null;
+    if (!sched && !rt) continue;
+    seen.add(d.name);
+    out.push({ dest: d, time: rt || sched, sched, isRT: !!rt });
+  }
+  return out;
+}
+
+function showDebug(lines) {
+  const bar = document.getElementById('debugBar');
+  if (!lines.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'block';
+  bar.innerHTML = lines.join('<br>');
+}
+
+// ── Betöltés ─────────────────────────────────────────────────────────
+async function loadAll() {
+  if (!API_KEY) return;
+  if (location.protocol === 'file:') {
+    document.getElementById('content').innerHTML =
+      '<div class="status-msg" style="color:var(--orange)">⚠️ file:// címről nem működik. Használd a GitHub Pages címet, vagy indíts helyi szervert (python -m http.server 8080).</div>';
+    return;
+  }
+  document.getElementById('updated').textContent = '⏳ frissítés…';
+  const debug = [];
+
+  try {
+    // 1) Örs megállók
+    const ors = await discoverOrsStops();
+    if (!ors.length) {
+      document.getElementById('content').innerHTML =
+        `<div class="status-msg" style="color:var(--red)">❌ Nem találtam Örs vezér tere megállókat az API-ban.<br>
+         <small>Add meg kézzel az azonosítókat az EXTRA_ORS_STOP_IDS listában a fájl elején.</small></div>`;
+      document.getElementById('updated').textContent = 'Hiba!';
+      return;
+    }
+
+    // 2) Indulások Örsről
+    const results = await Promise.all(ors.map(s =>
+      apiFetch(`arrivals-and-departures-for-stop.json?stopId=${encodeURIComponent(s.id)}&onlyDepartures=true&minutesBefore=0&minutesAfter=${MINS}&limit=60`)
+        .catch(e => ({ __err: e.message, __stop: s }))
+    ));
+
+    let deps = [];
+    results.forEach((res, i) => {
+      const stop = ors[i];
+      if (res.__err) { debug.push(`❌ ${stop.name} (${stop.id}): ${res.__err}`); return; }
+      const refs = res?.data?.references || {};
+      for (const st of (res?.data?.entry?.stopTimes || [])) {
+        const depTime = st.predictedDepartureTime || st.departureTime;
+        if (!depTime) continue;
+        const trip    = refs.trips?.[st.tripId] || {};
+        const routeId = trip.routeId || st.routeId;
+        const route   = (routeId && refs.routes?.[routeId]) || {};
+        const type    = route.type ?? route.style?.vehicleIcon ?? -1;
+        if (isExcludedType(type)) continue;
+        deps.push({
+          orsStopName: stop.name, tripId: st.tripId, serviceDate: st.serviceDate,
+          stopSeq: st.stopSequence, depTime, schedDep: st.departureTime || depTime,
+          routeId, routeName: route.shortName || route.longName || '?', routeType: type,
+          headsign: st.tripHeadsign || trip.tripHeadsign || '',
+        });
+      }
+    });
+    deps.sort((a, b) => a.depTime - b.depTime);
+
+    // 3) Járatcsoportok szűrése: melyik irány érint célhelyet?
+    const groups = new Map();
+    for (const d of deps) {
+      const key = d.routeId + '|' + d.headsign;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(d);
+    }
+    const probes = [];
+    for (const [key, list] of groups) {
+      if (negCache.has(key)) continue;
+      probes.push((async () => {
+        const first = list[0];
+        try {
+          const td = await apiFetch(`trip-details.json?tripId=${first.tripId}&serviceDate=${first.serviceDate}`);
+          first.hits = findDestinations(td, first.stopSeq);
+          first.fetched = true;
+          if (!first.hits.length) negCache.add(key);
+        } catch(e) { first.fetched = false; }
+      })());
+    }
+    await Promise.all(probes);
+
+    const candidates = deps.filter(d => !negCache.has(d.routeId + '|' + d.headsign)).slice(0, MAX_FETCH);
+    await Promise.all(candidates.map(async d => {
+      if (d.fetched) return;
+      try {
+        const td = await apiFetch(`trip-details.json?tripId=${d.tripId}&serviceDate=${d.serviceDate}`);
+        d.hits = findDestinations(td, d.stopSeq);
+        d.fetched = true;
+      } catch(e) { d.hits = []; }
+    }));
+
+    // 4) Lapos lista: egy kártya = egy járat + egy célhely
+    const items = [];
+    for (const d of candidates) for (const h of (d.hits || [])) items.push({ dep: d, hit: h });
+    lastItems = items;
+
+    debug.push(`ℹ️ Örs megállók: ${ors.map(s => s.name + ' (' + s.id + ')').join(', ')}`);
+    debug.push(`ℹ️ ${deps.length} járat vizsgálva, ${groups.size - probes.length} irány kihagyva (korábban nem érintett célhelyet), ${items.length} találat.`);
+    showDebug(debug);
+
+    renderCurrent();
+    document.getElementById('updated').textContent = `Frissítve: ${new Date().toLocaleTimeString('hu-HU')}`;
+  } catch(e) {
+    document.getElementById('content').innerHTML =
+      `<div class="status-msg" style="color:var(--red)">❌ Hiba: ${e.message}</div>`;
+    document.getElementById('updated').textContent = 'Hiba!';
+  }
+}
+
+// ── Rendezés / lista méret ───────────────────────────────────────────
+function setSort(val) {
+  sortBy = val;
+  document.querySelectorAll('#sortBtns .seg').forEach((b, i) =>
+    b.classList.toggle('active', (i === 0) === (val === 'depart')));
+  try { localStorage.setItem('ors_rev_sort', val); } catch(e) {}
+  renderCurrent();
+}
+function setLimit(val) {
+  maxItems = val;
+  document.querySelectorAll('#limitBtns .seg').forEach(b => b.classList.toggle('active', b.textContent == val));
+  try { localStorage.setItem('ors_rev_limit', val); } catch(e) {}
+  renderCurrent();
+}
+
+// ── Renderelés ───────────────────────────────────────────────────────
+function renderCurrent() {
+  const t = Math.floor(Date.now() / 1000);
+  const hide = document.getElementById('hideExpired').checked;
+  let items = lastItems.filter(it => !(hide && it.dep.depTime < t - 30));
+
+  items.sort((a, b) => sortBy === 'arrive'
+    ? a.hit.time - b.hit.time
+    : (a.dep.depTime - b.dep.depTime) || (a.hit.time - b.hit.time));
+
+  if (!items.length) {
+    document.getElementById('content').innerHTML =
+      `<div class="status-msg">Nincs találat a következő ${MINS} percben.<br><small>Az alsó sárga sáv megmutatja, mit talált az app.</small></div>`;
+    return;
+  }
+  document.getElementById('content').innerHTML =
+    items.slice(0, maxItems).map((it, i) => card(it, i + 1, t)).join('');
+}
+
+function card(it, rank, t) {
+  const { dep, hit } = it;
+  const d = hit.dest;
+  const leaveTs = hit.time - (d.driveMin + BUFFER_MIN) * 60;
+  const mL = Math.round((leaveTs - t) / 60);
+  const mD = Math.round((dep.depTime - t) / 60);
+  const delay = Math.round((dep.depTime - dep.schedDep) / 60);
+  const veh = vehicleLabel(dep.routeType, dep.routeName);
+
+  let cls, pCls, pTxt;
+  if      (mL < -1) { cls = 'past';  pCls = 'past';  pTxt = 'Már indulnod kellett'; }
+  else if (mL <= 1) { cls = 'now';   pCls = 'now';   pTxt = d.walk ? '🚶 INDULJ!' : '🚨 MOST INDULJ!'; }
+  else if (mL <= 4) { cls = 'hurry'; pCls = 'hurry'; pTxt = `⚡ ${mL} perc`; }
+  else if (mL <= 9) { cls = 'soon';  pCls = 'soon';  pTxt = `${mL} perc múlva`; }
+  else              { cls = '';      pCls = 'ok';    pTxt = `${mL} perc múlva`; }
+
+  const arrCell = hit.isRT
+    ? `<div class="val arr">${fmt(hit.time)}</div><div class="sub">valós idő</div>`
+    : `<div class="val sched">${fmt(hit.sched)}<span class="sched-badge">M</span></div><div class="sub">menetrend</div>`;
+
+  return `
+  <div class="card ${cls}">
+    <div class="card-top">
+      <div>
+        <span class="route-badge">${veh.emoji} ${dep.routeName} <span style="font-size:0.75rem;font-weight:500;opacity:0.75">${veh.name}</span></span>
+        <span class="rank">#${rank}</span>
+        ${dep.headsign ? `<div class="headsign">→ ${dep.headsign}</div>` : ''}
+      </div>
+      <span class="urgency-pill ${pCls}">${pTxt}</span>
+    </div>
+    <div class="stop-row">
+      🚏 ${dep.orsStopName}<br>
+      🎯 <b>${d.name}</b> <span style="color:var(--muted)">(${d.driveMin} perc ${d.walk ? 'gyalog' : 'autóval'})</span>
+      ${delay > 0 ? `<span class="delay-badge">+${delay} perc késés</span>` : ''}
+    </div>
+    <div class="times-row">
+      <div class="time-cell">
+        <div class="lbl">Örsről indul</div>
+        <div class="val dep">${fmt(dep.depTime)}</div>
+        <div class="sub">${mD > 0 ? mD + ' perc múlva' : 'indul'}</div>
+      </div>
+      <div class="time-cell">
+        <div class="lbl">Megállóba ér</div>
+        ${arrCell}
+      </div>
+      <div class="time-cell">
+        <div class="lbl">${d.walk ? 'Gyalog indulj' : 'Autóval indulj'}</div>
+        <div class="val leave">${fmt(leaveTs)}</div>
+        <div class="sub">${mL > 0 ? mL + ' perc múlva' : mL >= -1 ? 'most!' : 'lejárt'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Óra + indítás ────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}, 1000);
+setInterval(renderCurrent, 30000);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement === document.getElementById('apiKeyInput')) saveKey();
+});
+
+loadSavedKey();
+if (API_KEY) { loadAll(); refreshTimer = setInterval(loadAll, 60000); }
+</script>
+</body>
+</html>
